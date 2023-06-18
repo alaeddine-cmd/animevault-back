@@ -52,12 +52,14 @@ router.post('/posts', upload.single('image'), async (req, res) => {
     if (req.file) {
       const { buffer, originalname, mimetype } = req.file;
 
+      // Create a release on GitHub
       const release = await octokit.repos.createRelease({
         owner: 'alaeddine-cmd',
         repo: 'animevault-back',
         tag_name: 'v1.0', // Specify a tag name for the release
       });
 
+      // Upload the image file as a release asset
       const uploadAsset = await octokit.repos.uploadReleaseAsset({
         owner: 'alaeddine-cmd',
         repo: 'animevault-back',
@@ -66,6 +68,7 @@ router.post('/posts', upload.single('image'), async (req, res) => {
         data: buffer,
       });
 
+      // Retrieve the download URL of the uploaded asset
       imageURL = uploadAsset.data.browser_download_url;
     }
 
@@ -81,7 +84,6 @@ router.post('/posts', upload.single('image'), async (req, res) => {
     res.status(400).json({ error: 'Failed to create a post' });
   }
 });
-
 
 
 // Update

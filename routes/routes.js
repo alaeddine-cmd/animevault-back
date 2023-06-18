@@ -30,7 +30,7 @@ router.get('/posts', async (req, res) => {
   }
 });
 
-// Create a new post
+// Create a new pos
 router.post('/posts', upload.single('image'), async (req, res) => {
   const { content } = req.body;
   let imageURL = null;

@@ -3,7 +3,12 @@ const multer = require('multer');
 const router = express.Router();
 const Post = require('../models/model');
 const emojiRegex = require('emoji-regex');
+const { Octokit } = require('@octokit/rest');
 
+
+const octokit = new Octokit({
+  auth: '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',
+});
 // Multer storage configuration
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -33,15 +38,8 @@ router.get('/posts', async (req, res) => {
 // Create a new pos
 router.post('/posts', upload.single('image'), async (req, res) => {
   const { content } = req.body;
-  let imageURL = null;
-
-  if (req.file) {
-    const { filename, mimetype } = req.file;
-    imageURL = `${req.protocol}://${req.get('host')}/uploads/${filename}`;
-  }
 
   try {
-    // Create a new post with the content and media
     const reactions = {
       heart: 0,
       sad: 0,
@@ -49,10 +47,32 @@ router.post('/posts', upload.single('image'), async (req, res) => {
       laugh: 0
     };
 
+    let imageURL = null;
+
+    if (req.file) {
+      const { buffer, originalname, mimetype } = req.file;
+
+      const release = await octokit.repos.createRelease({
+        owner: 'alaeddine-cmd',
+        repo: 'animevault-back',
+        tag_name: 'v1.0', // Specify a tag name for the release
+      });
+
+      const uploadAsset = await octokit.repos.uploadReleaseAsset({
+        owner: 'alaeddine-cmd',
+        repo: 'animevault-back',
+        release_id: release.data.id,
+        name: originalname,
+        data: buffer,
+      });
+
+      imageURL = uploadAsset.data.browser_download_url;
+    }
+
     const post = await Post.create({
       content,
       media: imageURL ? [imageURL] : [],
-      reactions, // Set the reactions field with initial values
+      reactions,
     });
 
     res.status(201).json(post);
@@ -61,6 +81,7 @@ router.post('/posts', upload.single('image'), async (req, res) => {
     res.status(400).json({ error: 'Failed to create a post' });
   }
 });
+
 
 
 // Update

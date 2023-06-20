@@ -15,18 +15,15 @@ const octokit = new Octokit({
 // Multer storage configuration
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/');
+    cb(null, path.join(__dirname, '..', 'uploads')); // Set the destination folder
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const fileExtension = file.originalname.split('.').pop(); // Get the file extension
-    const fileName = file.fieldname + '-' + uniqueSuffix + '.' + fileExtension;
-    cb(null, fileName);
-  },
+    cb(null, file.originalname); // Use the original filename
+  }
 });
 
-// Multer upload instance
-const upload = multer({ storage: storage });
+// Create the multer middleware
+const upload = multer({ storage });
 
 // Get all posts
 router.get('/posts', async (req, res) => {
@@ -40,10 +37,10 @@ router.get('/posts', async (req, res) => {
 
 // Create a new pos
 
-
 router.post('/posts', upload.single('image'), async (req, res) => {
+  const { content } = req.body;
+
   try {
-    const { content } = req.body;
     const reactions = {
       heart: 0,
       sad: 0,
@@ -58,40 +55,68 @@ router.post('/posts', upload.single('image'), async (req, res) => {
 
       // Move the uploaded file to the 'uploads' folder
       const filePath = path.join(__dirname, '..', 'uploads', originalname);
-      await writeFileAsync(filePath, buffer, 'binary');
+
+      fs.writeFileSync(filePath, buffer);
 
       // Create a release on GitHub
-      const release = await octokit.repos.createRelease({
+      octokit.repos.createRelease({
         owner: 'alaeddine-cmd',
         repo: 'animevault-back',
         tag_name: 'v1.0', // Specify a tag name for the release
-      });
+      })
+        .then((release) => {
+          // Upload the image file as a release asset
+          octokit.repos.uploadReleaseAsset({
+            owner: 'alaeddine-cmd',
+            repo: 'animevault-back',
+            release_id: release.data.id,
+            name: originalname,
+            data: buffer,
+          })
+            .then((uploadAsset) => {
+              // Retrieve the download URL of the uploaded asset
+              imageURL = uploadAsset.data.browser_download_url;
 
-      // Upload the image file as a release asset
-      const uploadAsset = await octokit.repos.uploadReleaseAsset({
-        owner: 'alaeddine-cmd',
-        repo: 'animevault-back',
-        release_id: release.data.id,
-        name: originalname,
-        data: buffer,
-      });
-
-      // Retrieve the download URL of the uploaded asset
-      imageURL = uploadAsset.data.browser_download_url;
+              // Create a post with the saved image URL
+              createPost();
+            })
+            .catch((error) => {
+              console.error(error);
+              res.status(500).json({ error: 'Failed to upload the file to GitHub' });
+            });
+        })
+        .catch((error) => {
+          console.error(error);
+          res.status(500).json({ error: 'Failed to create a release on GitHub' });
+        });
+    } else {
+      // Create a post without an image URL
+      createPost();
     }
 
-    const post = await Post.create({
-      content,
-      media: imageURL ? [imageURL] : [],
-      reactions,
-    });
-
-    res.status(201).json(post);
+    function createPost() {
+      Post.create({
+        content,
+        media: imageURL ? [imageURL] : [],
+        reactions,
+      })
+        .then((post) => {
+          res.status(201).json(post);
+        })
+        .catch((error) => {
+          console.error(error);
+          res.status(400).json({ error: 'Failed to create a post' });
+        });
+    }
   } catch (error) {
     console.error(error);
     res.status(400).json({ error: 'Failed to create a post' });
   }
 });
+
+
+
+
 
 
 

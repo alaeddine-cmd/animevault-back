@@ -42,9 +42,8 @@ router.get('/posts', async (req, res) => {
 
 
 router.post('/posts', upload.single('image'), async (req, res) => {
-  const { content } = req.body;
-
   try {
+    const { content } = req.body;
     const reactions = {
       heart: 0,
       sad: 0,
@@ -93,6 +92,7 @@ router.post('/posts', upload.single('image'), async (req, res) => {
     res.status(400).json({ error: 'Failed to create a post' });
   }
 });
+
 
 
 

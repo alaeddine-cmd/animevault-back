@@ -4,10 +4,13 @@ const router = express.Router();
 const Post = require('../models/model');
 const emojiRegex = require('emoji-regex');
 const { Octokit } = require('@octokit/rest');
-
+const path = require('path');
+const fs = require('fs');
+const util = require('util');
+const writeFileAsync = util.promisify(fs.writeFile);
 
 const octokit = new Octokit({
-  auth: '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',
+  auth: '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',
 });
 // Multer storage configuration
 const storage = multer.diskStorage({
@@ -36,6 +39,8 @@ router.get('/posts', async (req, res) => {
 });
 
 // Create a new pos
+
+
 router.post('/posts', upload.single('image'), async (req, res) => {
   const { content } = req.body;
 
@@ -50,7 +55,11 @@ router.post('/posts', upload.single('image'), async (req, res) => {
     let imageURL = null;
 
     if (req.file) {
-      const { buffer, originalname, mimetype } = req.file;
+      const { buffer, originalname } = req.file;
+
+      // Move the uploaded file to the 'uploads' folder
+      const filePath = path.join(__dirname, '..', 'uploads', originalname);
+      await writeFileAsync(filePath, buffer, 'binary');
 
       // Create a release on GitHub
       const release = await octokit.repos.createRelease({
@@ -84,6 +93,7 @@ router.post('/posts', upload.single('image'), async (req, res) => {
     res.status(400).json({ error: 'Failed to create a post' });
   }
 });
+
 
 
 // Update
